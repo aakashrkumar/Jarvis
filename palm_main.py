@@ -83,7 +83,7 @@ class PaLM:
         self.config = config
         self.random_state = jax.random.PRNGKey(seed=config.seed)
 
-        self.partitioner = PjitPartitioner(num_partitions=1, logical_axis_rules=DEFAULT_TPU_RULES)
+        self.partitioner = PjitPartitioner(num_partitions=8, logical_axis_rules=DEFAULT_TPU_RULES)
 
         lr = 1e-2
         opt = adamw(learning_rate=lr, b1=0.9, b2=0.999,
