@@ -11,6 +11,7 @@ import tqdm
 import wandb
 
 import jax.numpy as jnp
+from datasets import load_dataset
 
 def train():
     config = PaLMConfig
