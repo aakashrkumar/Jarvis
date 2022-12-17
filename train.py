@@ -18,7 +18,7 @@ def train():
     pb = tqdm.tqdm()
     
     while True:
-        seq = jnp.ones((16, 2049), dtype=jnp.uint)
+        seq = jnp.ones((16, 2049), dtype=int)
         metrics = model.train_step(seq)
         pb.update(1)
         # wandb.log(metrics)

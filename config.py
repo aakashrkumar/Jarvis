@@ -7,10 +7,10 @@ from flax import struct
 class PaLMConfig(struct.PyTreeNode):
     num_tokens:         int = 20000
     
-    dim:                int = 512
+    dim:                int = 2048
     depth:              int = 10
     
-    heads:              int = 8
+    heads:              int = 16
     dim_head:           int = 64
     
     ff_mult:            int = 4
