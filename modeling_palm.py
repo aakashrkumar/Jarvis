@@ -1,12 +1,14 @@
 """
-Codebase from Lucidrains' PaLM model
+Codebase from Lucidrains' PaLMModel model
 """
-
+import numpy
 import flax.linen as nn
 from einops import rearrange
 import jax.numpy as jnp
 from jax.numpy import einsum
 from typing import Callable
+from config import PaLMConfig
+import partitioning as nnp
 
 ATTN_MASK_VALUE = -1e10
 
@@ -15,7 +17,7 @@ class PreNorm(nn.Module):
 
     @nn.compact
     def __call__(self, x, **kwargs):
-        x = nn.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
+        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
         return self.fn(x, **kwargs)
 
 # rotary positional embedding
@@ -55,25 +57,22 @@ class SwiGLU(nn.Module):
 # discovered by Wang et al + EleutherAI from GPT-J fame
 
 class ParallelTransformerBlock(nn.Module):
-    dim: int
-    dim_head: int = 64
-    heads: int = 8
-    ff_mult: int = 4
+    config: PaLMConfig
 
     @nn.compact
     def __call__(self, x):
-        attn_inner_dim = self.dim_head * self.heads
-        ff_inner_dim = self.dim * self.ff_mult
-        fused_dims = (attn_inner_dim, self.dim_head, self.dim_head, (ff_inner_dim * 2))
+        attn_inner_dim = self.config.dim_head * self.config.heads
+        ff_inner_dim = self.config.dim * self.config.ff_mult
+        fused_dims = (attn_inner_dim, self.config.dim_head, self.config.dim_head, (ff_inner_dim * 2))
 
-        scale = self.dim_head ** -0.5
+        scale = self.config.dim_head ** -0.5
 
         n = x.shape[1]
 
         split_indices = numpy.cumsum(fused_dims[:-1])
 
         # attention queries, keys, values, and feedforward inner
-        fused_attn_ff_proj = nn.Dense(features = sum(fused_dims), use_bias=False)(x)
+        fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
 
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
 
@@ -82,10 +81,10 @@ class ParallelTransformerBlock(nn.Module):
         # they found no performance loss past a certain scale, and more efficient decoding obviously
         # https://arxiv.org/abs/1911.02150
 
-        q = rearrange(q, "b n (h d) -> b h n d", h = self.heads)
+        q = rearrange(q, "b n (h d) -> b h n d", h = self.config.heads)
 
         # rotary embeddings
-        positions = RotaryEmbedding(self.dim_head)(n)
+        positions = RotaryEmbedding(self.config.dim_head)(n)
 
         if positions is not None and positions.shape[-2] >= n:
             positions = positions[:n]
@@ -114,11 +113,11 @@ class ParallelTransformerBlock(nn.Module):
 
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
-        attn_out = nn.Dense(self.dim, use_bias=False)(attn_out)
+        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(attn_out)
 
         # feedforward out
         ff_out = SwiGLU()(ff)
-        ff_out = nn.Dense(self.dim, use_bias=False)(ff_out)
+        ff_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(ff_out)
 
         # merge heads
         merge_heads = attn_out + ff_out
@@ -127,18 +126,14 @@ class ParallelTransformerBlock(nn.Module):
 # transformer
 
 class ParallelTransformer(nn.Module):
-    dim: int
-    depth: int
-    heads: int
-    dim_head: int
-    ff_mult: int = 4
+    config: PaLMConfig
 
     @nn.compact
     def __call__(self, x):
         layers = []
-        for _ in range(self.depth):
+        for _ in range(self.config.depth):
             layers.append(
-                PreNorm(ParallelTransformerBlock(self.dim, self.dim_head, self.heads, self.ff_mult))
+                PreNorm(ParallelTransformerBlock(config=self.config))
             )
         for block in layers:
             x = block(x) + x
@@ -146,20 +141,15 @@ class ParallelTransformer(nn.Module):
 
 # model
 
-class PaLM(nn.Module): 
-    dim: int 
-    num_tokens: int
-    depth: int 
-    dim_head: int = 64 
-    heads: int = 8 
-    ff_mult: int = 4
+class PaLMModel(nn.Module): 
+    config: PaLMConfig
 
     @nn.compact
     def __call__(self, x):
-        embed = nn.Embed(self.num_tokens, self.dim, embedding_init = nn.initializers.normal(stddev=0.02))
+        embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("embed", "mlp")})
         x = embed(x)
-        x = ParallelTransformer(dim=self.dim, depth=self.depth, heads=self.heads, dim_head=self.dim_head, ff_mult=self.ff_mult)(x)
-        x = nn.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
+        x = ParallelTransformer(config=self.config)(x)
+        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
         out = embed.attend(x)
         return out    
 
@@ -173,7 +163,7 @@ if __name__ == "__main__":
 
     seq = jax.random.randint(key, (1, 2048), 0, 20000)
 
-    model = PaLM(
+    model = PaLMModel(
         num_tokens = 20000,
         dim = 512,
         depth = 1,
