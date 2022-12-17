@@ -22,3 +22,5 @@ def train():
         metrics = model.train_step(seq)
         pb.update(1)
         # wandb.log(metrics)
+if __name__ == "__main__":
+    train()
