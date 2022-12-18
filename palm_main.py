@@ -23,10 +23,10 @@ from config import PaLMConfig
 DEFAULT_TPU_RULES = [
     ('batch', 'data'),
     ('mlp', 'model'),
-    ('heads', None),
+    ('heads', 'model'),
     ('vocab', 'model'),
     ('embed', None),
-    ('kv', 'model'),
+    ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
     ('abspos_buckets', None),
