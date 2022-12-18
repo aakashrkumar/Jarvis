@@ -74,7 +74,7 @@ class ParallelTransformerBlock(nn.Module):
         split_indices = numpy.cumsum(fused_dims[:-1])
         # attention queries, keys, values, and feedforward inner
         fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
-
+        fused_attn_ff_proj = with_sharding_constraint(fused_attn_ff_proj, ("batch", "length", "embed"))
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
         k = with_sharding_constraint(k, ("batch", "length", "kv"))
         v = with_sharding_constraint(v, ("batch", "length", "kv"))
