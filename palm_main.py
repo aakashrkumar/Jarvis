@@ -34,11 +34,8 @@ DEFAULT_TPU_RULES = [
     ('layers', None),
     ('stack', None),
     ('mlp_activations', None),
-
-    ("data", "data"),
-    ("model", "model"),
-    (None, None),
 ]
+
 
 
 class PaLMState(struct.PyTreeNode):
