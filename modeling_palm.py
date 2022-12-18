@@ -118,11 +118,11 @@ class ParallelTransformerBlock(nn.Module):
 
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
-        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(attn_out)
+        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("mlp", "embed")})(attn_out)
 
         # feedforward out
         ff_out = SwiGLU()(ff)
-        ff_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(ff_out)
+        ff_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("mlp", "embed")})(ff_out)
 
         # merge heads
         merge_heads = attn_out + ff_out
