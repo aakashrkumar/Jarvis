@@ -79,6 +79,7 @@ class ParallelTransformerBlock(nn.Module):
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
         k = with_sharding_constraint(k, ("batch", "length", "kv"))
         v = with_sharding_constraint(v, ("batch", "length", "kv"))
+        ff = with_sharding_constraint(ff, ("batch", "length", "mlp"))
 
         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
