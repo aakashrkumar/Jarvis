@@ -77,7 +77,6 @@ class ParallelTransformerBlock(nn.Module):
         fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
 
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
-        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
         k = with_sharding_constraint(k, ("batch", "length", "kv"))
         v = with_sharding_constraint(v, ("batch", "length", "kv"))
 
@@ -87,6 +86,7 @@ class ParallelTransformerBlock(nn.Module):
         # https://arxiv.org/abs/1911.02150
 
         q = rearrange(q, "b n (h d) -> b h n d", h = self.config.heads)
+        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
 
         # rotary embeddings
         positions = RotaryEmbedding(self.config.dim_head)(n)
