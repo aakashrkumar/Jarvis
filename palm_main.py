@@ -130,7 +130,7 @@ class PaLM:
                 model_state_spec, 
                 P("data",)
             ),
-            out_axis_resources=(model_state_spec, None)
+            out_axis_resources=(model_state_spec, P("data",))
         )
         
         n_params_flax = sum(

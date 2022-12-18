@@ -72,7 +72,6 @@ class ParallelTransformerBlock(nn.Module):
         n = x.shape[1]
 
         split_indices = numpy.cumsum(fused_dims[:-1])
-
         # attention queries, keys, values, and feedforward inner
         fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
 
@@ -143,7 +142,7 @@ class ParallelTransformer(nn.Module):
             )
         for block in layers:
             x = block(x) + x
-            x = with_sharding_constraint(x, ("batch", "length", "mlp"))
+            x = with_sharding_constraint(x, ("batch", "length", "embed"))
         return x
 
 # model
@@ -155,11 +154,11 @@ class PaLMModel(nn.Module):
     def __call__(self, x):
         embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("embed", "mlp")})
         x = embed(x)
-        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
+        x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = ParallelTransformer(config=self.config)(x)
-        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
+        x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
-        x = with_sharding_constraint(x, ("batch", "length", "mlp"))
+        x = with_sharding_constraint(x, ("batch", "length", "embed"))
         out = embed.attend(x)
         return out    
 
