@@ -20,12 +20,13 @@ from modeling_palm import PaLMModel
 from config import PaLMConfig
 
 
-DEFAULT_TPU_RULES = [
+DEFAULT_TPU_RULES =  [
     ('batch', 'data'),
     ('mlp', 'model'),
     ('heads', 'model'),
     ('vocab', 'model'),
-    ('embed', None),
+    # shard remaining activations; weight matrices already have axes mapped to 'model'
+    ('embed', 'model'),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
