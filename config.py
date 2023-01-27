@@ -18,6 +18,6 @@ class PaLMConfig(struct.PyTreeNode):
     lr:                 float = 1e-4
     
     seed:               int = 0
-    batch_size:         int = 16
+    batch_size:         int = 4
     
-    model_devices:     int = 4
+    model_devices:     int = 8
