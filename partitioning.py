@@ -56,12 +56,12 @@ def __get_partition_rules():
 def _get_partition_rules():
     return [
         # embeddings
-        (("params", "Embed_0", "embedding"), P("mp", None)),
+        (("params", "Embed_0", "embedding"), P(None, "mp")),
         (("params", "ParallelTransformer_0", "PreNorm_.*", "LayerNorm_0", "scale"), P(None, )),
         
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_0"), P("mp", None)),
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_1"), P(None, "mp")),
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_2"), P("mp", None)),
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_0"), P(None, "mp")), # 
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_1"), P(None, "mp")), # 
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_2"), P(None, "mp")), # 
         
         
         (("params", "LayerNorm_0", "scale"), P(None, )),
