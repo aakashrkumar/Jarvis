@@ -150,6 +150,7 @@ def _opt_state_spec_per_leaf(x, spec):
 class PaLM:
     def __init__(self, config: PaLMConfig):
         global param_spec
+        print("Initializing PaLM...")
         start_time = time.time()
         self.config = config
         self.random_state = jax.random.PRNGKey(seed=config.seed)
@@ -247,8 +248,7 @@ class PaLM:
         n_params_flax = sum(
             jax.tree_leaves(jax.tree_map(lambda x: np.prod(x.shape), params))
         )
-        print(f"Setup complete, it took {time.time() - start_time:0.2f} seconds, for a total of {n_params_flax:,} parameters"
-              )
+        print(f"Setup complete, it took {time.time() - start_time:0.2f} seconds, for a total of {n_params_flax:,} parameters")
 
     def get_key(self):
         self.random_state, key = jax.random.split(self.random_state)
