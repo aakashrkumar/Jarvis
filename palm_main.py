@@ -108,7 +108,7 @@ def train_step(palm_state, seqs):
     loss, grads = gradient_fn(palm_state.train_state.params)
 
     train_state = palm_state.train_state.apply_gradients(grads=grads,)
-    unet_state = unet_state.replace(train_state=train_state)
+    palm_state = palm_state.replace(train_state=train_state)
     return palm_state, {"loss": loss}
 
 
@@ -148,7 +148,7 @@ class PaLM:
         self.config = config
         self.random_state = jax.random.PRNGKey(seed=config.seed)
 
-        mesh_shape = (1,1)
+        mesh_shape = (2, 4)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(self.devices, ("dp", "mp"))
 
