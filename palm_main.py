@@ -7,7 +7,7 @@ from tqdm import tqdm
 import jax
 import jax.numpy as jnp
 from jax.experimental import PartitionSpec as P
-from jax.experimental.pjit import pjit
+from jax.experimental.pjit import pjit, with_sharding_constraint
 from flax import struct
 from jax.experimental import maps
 
@@ -22,6 +22,8 @@ from flax.core.frozen_dict import FrozenDict, freeze, unfreeze
 from flax import core, struct, traverse_util
 import partitioning as nnp
 
+batch_spec = P("dp")
+grad_batch_spec = P(None, "dp")
 
 class TrainState(struct.PyTreeNode):
     step: int
@@ -95,6 +97,7 @@ def cross_entropy(logprobs, targets):
 
 
 def train_step(palm_state, seqs):
+    seqs = with_sharding_constraint(seqs, batch_spec)
     def loss_fn(params):
         inp, labels = seqs[:, :-1], seqs[:, 1:]
         labels = jax.nn.one_hot(labels, palm_state.config.num_tokens)
@@ -106,6 +109,8 @@ def train_step(palm_state, seqs):
         return loss
     gradient_fn = jax.value_and_grad(loss_fn)
     loss, grads = gradient_fn(palm_state.train_state.params)
+    
+    grads = with_sharding_constraint(grads, param_spec)
 
     train_state = palm_state.train_state.apply_gradients(grads=grads,)
     palm_state = palm_state.replace(train_state=train_state)
@@ -144,11 +149,12 @@ def _opt_state_spec_per_leaf(x, spec):
 
 class PaLM:
     def __init__(self, config: PaLMConfig):
+        global param_spec
         start_time = time.time()
         self.config = config
         self.random_state = jax.random.PRNGKey(seed=config.seed)
 
-        mesh_shape = (1, 8)
+        mesh_shape = (2, 4)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(self.devices, ("dp", "mp"))
 
