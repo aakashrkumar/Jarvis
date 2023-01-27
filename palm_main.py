@@ -38,16 +38,32 @@ class TrainState(struct.PyTreeNode):
         return self.apply_fn(self, self.params, *args, **kwargs)
 
     def apply_gradients(self, *, grads, **kwargs):
-        update_fn = self.tx.update
-        updates, new_opt_state = update_fn(grads, self.opt_state, self.params)
-        params = optax.apply_updates(self.params, updates)
-        opt_state = new_opt_state
+        grads = split_params(grads)
+        params = split_params(
+            self.params
+        )
+        opt_state = {}
+        # we loop over keys: "standard", "scanned_encoder", "scanned_decoder"
+        for k, param in params.items():
+            update_fn = self.tx[k].update
+            updates, new_opt_state = update_fn(grads[k], self.opt_state[k], param)
+            params[k] = optax.apply_updates(param, updates)
+            opt_state[k] = new_opt_state
+        params = unsplit_params(params)
+        # merge with non-trainable params
+        params, new_params = traverse_util.flatten_dict(
+            unfreeze(self.params)
+        ), traverse_util.flatten_dict(unfreeze(params))
+        params.update(new_params)
+        params = freeze(traverse_util.unflatten_dict(params))
+
         return self.replace(
             step=self.step + 1,
             params=params,
-            opt_state=opt_state,
+            opt_state=freeze(opt_state),
             **kwargs,
         )
+
 
     @classmethod
     def create(cls, *, apply_fn, params, tx, **kwargs):
