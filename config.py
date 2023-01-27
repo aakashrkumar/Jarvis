@@ -20,4 +20,4 @@ class PaLMConfig(struct.PyTreeNode):
     seed:               int = 0
     batch_size:         int = 4
     
-    model_devices:     int = 8
+    num_partitions:     int = 8
