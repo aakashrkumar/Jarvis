@@ -1,5 +1,5 @@
 """
-Codebase from Lucidrains' PaLMModel model
+Codebase from Lucidrains' PaLM Model model
 """
 import numpy
 import flax.linen as nn
@@ -8,19 +8,16 @@ import jax.numpy as jnp
 from jax.numpy import einsum
 from typing import Callable
 from config import PaLMConfig
-import partitioning as nnp
 from flax.linen import partitioning as nn_partitioning
 
 ATTN_MASK_VALUE = -1e10
-with_sharding_constraint = nn_partitioning.with_sharding_constraint
 
 class PreNorm(nn.Module):
     fn: Callable
 
     @nn.compact
     def __call__(self, x, **kwargs):
-        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
-        x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+        x = nn.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
         return self.fn(x, **kwargs)
 
 # rotary positional embedding
@@ -74,22 +71,15 @@ class ParallelTransformerBlock(nn.Module):
 
         split_indices = numpy.cumsum(fused_dims[:-1])
         # attention queries, keys, values, and feedforward inner
-        fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
-        fused_attn_ff_proj = with_sharding_constraint(fused_attn_ff_proj, ("batch", "length", "mlp"))
+        fused_attn_ff_proj = nn.Dense(features = sum(fused_dims), use_bias=False)(x)
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
-        q = with_sharding_constraint(q, ("batch", "length", "mlp"))
-        k = with_sharding_constraint(k, ("batch", "length", "mlp"))
-        v = with_sharding_constraint(v, ("batch", "length", "mlp"))
-        ff = with_sharding_constraint(ff, ("batch", "length", "mlp"))
 
         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
         # they found no performance loss past a certain scale, and more efficient decoding obviously
         # https://arxiv.org/abs/1911.02150
-
         q = rearrange(q, "b n (h d) -> b h n d", h = self.config.heads)
-        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
-
+        
         # rotary embeddings
         positions = RotaryEmbedding(self.config.dim_head)(n)
 
@@ -120,11 +110,11 @@ class ParallelTransformerBlock(nn.Module):
 
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
-        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("mlp", "embed")})(attn_out)
+        attn_out = nn.Dense(self.config.dim, use_bias=False)(attn_out)
 
         # feedforward out
         ff_out = SwiGLU()(ff)
-        ff_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("mlp", "embed")})(ff_out)
+        ff_out = nn.Dense(self.config.dim, use_bias=False)(ff_out)
 
         # merge heads
         merge_heads = attn_out + ff_out
@@ -144,7 +134,6 @@ class ParallelTransformer(nn.Module):
             )
         for block in layers:
             x = block(x) + x
-            x = with_sharding_constraint(x, ("batch", "length", "embed"))
         return x
 
 # model
@@ -154,13 +143,10 @@ class PaLMModel(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("embed", "mlp")})
+        embed = nn.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02))
         x = embed(x)
-        x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = ParallelTransformer(config=self.config)(x)
-        x = with_sharding_constraint(x, ("batch", "length", "embed"))
-        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
-        x = with_sharding_constraint(x, ("batch", "length", "embed"))
+        x = nn.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
         out = embed.attend(x)
         return out    
 
@@ -173,13 +159,16 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
 
     seq = jax.random.randint(key, (1, 2048), 0, 20000)
-
-    model = PaLMModel(
+    config = PaLMConfig(
         num_tokens = 20000,
         dim = 512,
         depth = 1,
         heads = 8,
         dim_head = 64
+    )
+    
+    model = PaLMModel(
+        config
     )
 
     init_rngs = {'params': jax.random.PRNGKey(1), 

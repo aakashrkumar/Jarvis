@@ -1,76 +1,82 @@
-import dataclasses
+import re
 
-from typing import List, Mapping, Optional, Tuple
+from flax.core.frozen_dict import freeze
+from flax.traverse_util import flatten_dict, unflatten_dict
+from jax.experimental import PartitionSpec as P
 
-from flax import linen as nn, traverse_util
-from flax.core import frozen_dict
-from flax.linen import partitioning as nn_partitioning
+# utils adapted from https://github.com/google-research/google-research/blob/master/flax_models/t5x/partitions.py
+# Sentinels
+_unmatched = object()
 
-param_with_axes = nn_partitioning.param_with_axes
+# For specifying empty leaf dict `{}`
+empty_dict = object()
 
 
-@dataclasses.dataclass
-class ShardMixIn:
-    """Adds parameter sharding constraints for any flax.linen Module.
-    This is a mix-in class that overrides the `param` method of the
-    original Module, to selectively add sharding constraints as specified
-    in `shard_axes`"""
+def _match(qs, ks):
+    """Return True if regexes in qs match any window of strings in tuple ks."""
+    # compile regexes and force complete match
+    qts = tuple(map(lambda x: re.compile(x + "$"), qs))
+    for i in range(len(ks) - len(qs) + 1):
+        matches = [x.match(y) for x, y in zip(qts, ks[i:])]
+        if matches and all(matches):
+            return True
+    return False
 
-    shard_axes: Optional[Mapping[str, Tuple[str, ...]]] = None
 
-    # Modifies off https://github.com/google/flax/blob/main/flax/linen/partitioning.py#L304
-    def param(self, name: str, *init_args):
-        # Initialize using the original Module's `param` method
-        param = super().param(name, *init_args)
+def _replacement_rules(rules):
+    def replace(key, val):
+        for rule, replacement in rules:
+            if _match(rule, key):
+                return replacement
+        return val
 
-        # If `shard_axes` specified and param name in the dict, apply constraint
-        if self.shard_axes and (name in self.shard_axes.keys()):
-            axes = self.shard_axes[name]
+    return replace
 
-            # Apply the sharding constraint (e.g. axes=('embedding', 'hidden'))
-            param = nn_partitioning.with_sharding_constraint(param, axes)
 
-            # Sow this, to have the AxisMetadata available at initialization.
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-        elif self.shard_axes and name == "bias" and "bias" not in self.shard_axes.keys() and "kernel" in self.shard_axes.keys():
-            axes = (self.shard_axes["kernel"][-1],)
-            param = nn_partitioning.with_sharding_constraint(param, axes)
-            
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-        elif name == "scale" or name == "bias" and self.shard_axes is None:
-            axes = ("batch",)
-            param = nn_partitioning.with_sharding_constraint(param, axes)
-            
-            self.sow(
-                "params_axes",
-                f"{name}_axes",
-                nn_partitioning.AxisMetadata(axes),
-                reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
-            )
-            
+def __get_partition_rules():
+    return [
+        # embeddings
+        (("embed_positions", "embedding"), P("mp", None)),
+        (("embed_tokens", "embedding"), P("mp", None)),
+        (("rel_bias", "embedding"), P(None, "mp")),
+        # attention
+        (("(q_proj|k_proj|v_proj)", "kernel"), P(None, "mp")),
+        (("out_proj", "kernel"), P("mp", None)),
+        # FFN
+        (("Dense_0", "kernel"), P(None, "mp")),
+        (("GLU.*", "Dense_1", "kernel"), P(None, "mp")),
+        (("GLU.*", "Dense_2", "kernel"), P("mp", None)),
+        (("FFN.*", "Dense_1", "kernel"), P("mp", None)),
+        # layer norms
+        (("(bias|scale)",), None),
+        (("lm_head", "kernel"), P(None, "mp")),
+        # head scale and tau
+        (("(head_scale|tau)",), None),
+    ]
+def _get_partition_rules():
+    return [
+        # embeddings
+        (("params", "Embed_0", "embedding"), P("mp", None)),
+        (("params", "ParallelTransformer_0", "PreNorm_.*", "LayerNorm_0", "scale"), P(None, )),
+        
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_0"), P("mp", None)),
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_1"), P(None, "mp")),
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_2"), P("mp", None)),
+        
+        
+        (("params", "LayerNorm_0", "scale"), P(None, )),
+        
+    ]
 
-        return param
 
-class Dense(ShardMixIn, nn.Dense):
-    pass                    
-class Conv(ShardMixIn, nn.Conv):
-    pass
-
-class GroupNorm(ShardMixIn, nn.GroupNorm):
-    pass
-
-class LayerNorm(ShardMixIn, nn.LayerNorm):
-    pass
-
-class Embed(ShardMixIn, nn.Embed):
-    pass
+def set_partitions(in_dict):
+    rules = _get_partition_rules()
+    replace = _replacement_rules(rules)
+    initd = {k: _unmatched for k in flatten_dict(in_dict)}
+    result = {k: replace(k, v) for k, v in initd.items()}
+    for k, v in result.items():
+        if v == _unmatched:
+            print(f"Unmatched -> {k}")
+    l = list(result.keys())
+    assert _unmatched not in result.values(), "Incomplete partition spec."
+    return freeze(unflatten_dict(result))

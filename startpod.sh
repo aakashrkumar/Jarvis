@@ -1,0 +1,1 @@
+gcloud alpha compute tpus tpu-vm create v3-pod --zone europe-west4-a --preemptible --accelerator-type='v3-128' --version='v2-alpha-pod' --scopes=https://www.googleapis.com/auth/cloud-platform --internal-ips
