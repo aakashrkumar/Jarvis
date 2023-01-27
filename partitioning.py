@@ -56,12 +56,12 @@ def __get_partition_rules():
 def _get_partition_rules():
     return [
         # embeddings
-        (("params", "Embed_0", "embedding"), P(None, "mp")),
+        (("params", "Embed_0", "embedding"), P('mp', None)),
         (("params", "ParallelTransformer_0", "PreNorm_.*", "LayerNorm_0", "scale"), P(None, )),
         
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_0"), P(None, "mp")), # 
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_1"), P(None, "mp")), # 
-        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_2"), P(None, "mp")), # 
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_0"), P(None, "mp")), # fused dense mlp shape: (input_shape, all of the attn dims)
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_1"), P("mp", None)), # attn_out
+        (("params", "ParallelTransformer_0", "ParallelTransformerBlock_.*", "Dense_2"), P("mp", None)), # ff_out
         
         
         (("params", "LayerNorm_0", "scale"), P(None, )),
