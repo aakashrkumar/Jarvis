@@ -112,13 +112,11 @@ class ParallelTransformerBlock(nn.Module):
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
         attn_out = nn.Dense(self.config.dim, use_bias=False)(attn_out) # kernel shape: (sum(fused_dims), dim)
-        print("Dense_1 kernel shape: ", (sum(fused_dims), self.config.dim))
 
 
         # feedforward out
         ff_out = SwiGLU()(ff)
         ff_out = nn.Dense(self.config.dim, use_bias=False)(ff_out) # kernel shape: (sum(fused_dims), dim)
-        print("Dense_2 kernel shape: ", (sum(fused_dims), self.config.dim))
 
         # merge heads
         merge_heads = attn_out + ff_out
