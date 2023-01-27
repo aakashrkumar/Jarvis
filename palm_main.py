@@ -155,7 +155,7 @@ class PaLM:
         self.config = config
         self.random_state = jax.random.PRNGKey(seed=config.seed)
 
-        mesh_shape = (2, 4)
+        mesh_shape = (1, 8)
         self.devices = np.asarray(jax.devices()).reshape(*mesh_shape)
         self.mesh = maps.Mesh(self.devices, ("dp", "mp"))
 

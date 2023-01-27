@@ -12,6 +12,10 @@ from flax.linen import partitioning as nn_partitioning
 
 ATTN_MASK_VALUE = -1e10
 
+scan_with_axes = nn_partitioning.scan_with_axes
+remat = nn_partitioning.remat
+ScanIn = nn_partitioning.ScanIn
+
 class PreNorm(nn.Module):
     fn: Callable
 
