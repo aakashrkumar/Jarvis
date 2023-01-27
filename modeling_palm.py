@@ -71,7 +71,8 @@ class ParallelTransformerBlock(nn.Module):
 
         split_indices = numpy.cumsum(fused_dims[:-1])
         # attention queries, keys, values, and feedforward inner
-        fused_attn_ff_proj = nn.Dense(features = sum(fused_dims), use_bias=False)(x)
+        fused_attn_ff_proj = nn.Dense(features = sum(fused_dims), use_bias=False)(x) # kernel shape: (dim, sum(fused_dims))
+        print("Dense_0 kernel shape: ", (self.config.dim, sum(fused_dims)))
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
 
         # split heads
@@ -110,11 +111,14 @@ class ParallelTransformerBlock(nn.Module):
 
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
-        attn_out = nn.Dense(self.config.dim, use_bias=False)(attn_out)
+        attn_out = nn.Dense(self.config.dim, use_bias=False)(attn_out) # kernel shape: (sum(fused_dims), dim)
+        print("Dense_1 kernel shape: ", (sum(fused_dims), self.config.dim))
+
 
         # feedforward out
         ff_out = SwiGLU()(ff)
-        ff_out = nn.Dense(self.config.dim, use_bias=False)(ff_out)
+        ff_out = nn.Dense(self.config.dim, use_bias=False)(ff_out) # kernel shape: (sum(fused_dims), dim)
+        print("Dense_2 kernel shape: ", (sum(fused_dims), self.config.dim))
 
         # merge heads
         merge_heads = attn_out + ff_out
