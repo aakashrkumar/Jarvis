@@ -1,10 +1,11 @@
 import dataclasses
 
-from typing import List, Mapping, Optional, Tuple
+from typing import Callable, List, Mapping, Optional, Sequence, Tuple, Union
 
 from flax import linen as nn, traverse_util
 from flax.core import frozen_dict
 from flax.linen import partitioning as nn_partitioning
+
 
 param_with_axes = nn_partitioning.param_with_axes
 
@@ -74,3 +75,4 @@ class LayerNorm(ShardMixIn, nn.LayerNorm):
 
 class Embed(ShardMixIn, nn.Embed):
     pass
+
