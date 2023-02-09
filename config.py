@@ -8,8 +8,8 @@ class PaLMConfig(struct.PyTreeNode):
     num_tokens:         int = 20000
     seq_length:         int = 2048
     
-    dim:                int = 512
-    depth:              int = 1
+    dim:                int = 2048
+    depth:              int = 16
     
     
     heads:              int = 32

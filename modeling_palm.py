@@ -13,7 +13,7 @@ from flax.linen import partitioning as nn_partitioning
 
 ATTN_MASK_VALUE = -1e10
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
-
+with_sharding_constraint = lambda x, y: x
 class PreNorm(nn.Module):
     fn: Callable
 
