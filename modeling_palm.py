@@ -14,6 +14,9 @@ from flax.linen import partitioning as nn_partitioning
 ATTN_MASK_VALUE = -1e10
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
 with_sharding_constraint = lambda x, y: x
+
+
+
 class PreNorm(nn.Module):
     fn: Callable
 
@@ -75,12 +78,15 @@ class ParallelTransformerBlock(nn.Module):
         split_indices = numpy.cumsum(fused_dims[:-1])
         # attention queries, keys, values, and feedforward inner
         fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
+        # kernel_shape 
+        print("Kernel shape: ", (x[0][-1].shape, sum(fused_dims)))
+        
         fused_attn_ff_proj = with_sharding_constraint(fused_attn_ff_proj, ("batch", "length", "mlp"))
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
-        q = with_sharding_constraint(q, ("batch", "length", "mlp"))
-        k = with_sharding_constraint(k, ("batch", "length", "mlp"))
-        v = with_sharding_constraint(v, ("batch", "length", "mlp"))
-        ff = with_sharding_constraint(ff, ("batch", "length", "mlp"))
+        q = with_sharding_constraint(q, ("batch", "embed", "kv"))
+        k = with_sharding_constraint(k, ("batch", "length", "kv"))
+        v = with_sharding_constraint(v, ("batch", "length", "kv"))
+        ff = with_sharding_constraint(ff, ("batch", "length", "kv"))
 
         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
