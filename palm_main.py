@@ -138,7 +138,7 @@ class PaLM:
             train_step,
             in_axis_resources=(
                 model_state_spec,
-                P("data",)
+                P(None,)
             ),
             out_axis_resources=(model_state_spec, None)
         )
