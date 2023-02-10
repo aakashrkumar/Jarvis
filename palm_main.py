@@ -36,6 +36,8 @@ DEFAULT_TPU_RULES = [
     ('layers', None),
     ('stack', None),
     ('mlp_activations', None),
+    
+    (None, None)
 ]
 
 
