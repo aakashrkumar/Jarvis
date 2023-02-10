@@ -23,10 +23,11 @@ from optimizers import adamw
 
 DEFAULT_TPU_RULES = [
     ('batch', 'data'),
-    ('mlp', 'model'),
-    ('heads', 'model'),
-    ('vocab', 'model'),
-    ('embed', None),
+    # all weight matrices have this axis; activations already shard it along 'data'
+    ('embed', 'data'),
+    ('vocab', None),
+    ('mlp', None),
+    ('heads', None),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
