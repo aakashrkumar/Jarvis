@@ -22,7 +22,7 @@ class PreNorm(nn.Module):
 
     @nn.compact
     def __call__(self, x, **kwargs):
-        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
+        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False, shard_axes={"scale": (None, )})(x)
         x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
         return self.fn(x, **kwargs)
 
