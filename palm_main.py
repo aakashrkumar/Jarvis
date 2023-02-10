@@ -26,7 +26,7 @@ DEFAULT_TPU_RULES = [
     ('mlp', 'model'),
     ('heads', 'model'),
     ('vocab', 'model'),
-    ('embed', 'model'),
+    ('embed', None),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
@@ -35,7 +35,6 @@ DEFAULT_TPU_RULES = [
     ('layers', None),
     ('stack', None),
     ('mlp_activations', None),
-
     
     (None, None),
     ("model", "model"),
