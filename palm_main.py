@@ -26,7 +26,7 @@ DEFAULT_TPU_RULES = [
     ('mlp', 'model'),
     ('heads', 'model'),
     ('vocab', 'model'),
-    ('embed', None),
+    ('embed', "data"),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
