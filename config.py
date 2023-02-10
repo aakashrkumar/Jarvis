@@ -9,7 +9,7 @@ class PaLMConfig(struct.PyTreeNode):
     seq_length:         int = 2048
     
     dim:                int = 2048
-    depth:              int = 16
+    depth:              int = 4
     
     
     heads:              int = 32
