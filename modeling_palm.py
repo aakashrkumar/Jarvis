@@ -13,8 +13,6 @@ from flax.linen import partitioning as nn_partitioning
 
 ATTN_MASK_VALUE = -1e10
 with_sharding_constraint = nn_partitioning.with_sharding_constraint
-with_sharding_constraint = lambda x, y: x
-
 
 
 class PreNorm(nn.Module):
@@ -22,8 +20,8 @@ class PreNorm(nn.Module):
 
     @nn.compact
     def __call__(self, x, **kwargs):
-        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False, shard_axes={"scale": (None, )})(x)
-        x = with_sharding_constraint(x, ('batch', 'length', 'embed'))
+        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False, shard_axes={"scale": (None,)})(x)
+
         return self.fn(x, **kwargs)
 
 # rotary positional embedding
@@ -77,14 +75,9 @@ class ParallelTransformerBlock(nn.Module):
 
         split_indices = numpy.cumsum(fused_dims[:-1])
         # attention queries, keys, values, and feedforward inner
-        fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
+        fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": (None, "mlp")})(x)
         
-        fused_attn_ff_proj = with_sharding_constraint(fused_attn_ff_proj, ("batch", "length", "mlp"))
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
-        q = with_sharding_constraint(q, ("batch", "embed", "kv"))
-        k = with_sharding_constraint(k, ("batch", "length", "kv"))
-        v = with_sharding_constraint(v, ("batch", "length", "kv"))
-        ff = with_sharding_constraint(ff, ("batch", "length", "kv"))
 
         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
@@ -92,7 +85,6 @@ class ParallelTransformerBlock(nn.Module):
         # https://arxiv.org/abs/1911.02150
 
         q = rearrange(q, "b n (h d) -> b h n d", h = self.config.heads)
-        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
 
         # rotary embeddings
         positions = RotaryEmbedding(self.config.dim_head)(n)
@@ -148,7 +140,6 @@ class ParallelTransformer(nn.Module):
             )
         for block in layers:
             x = block(x) + x
-           #  x = with_sharding_constraint(x, ("batch", "length", "embed"))
         return x
 
 # model
@@ -160,11 +151,8 @@ class PaLMModel(nn.Module):
     def __call__(self, x):
         embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("vocab", "embed")})
         x = embed(x)
-        #  x = with_sharding_constraint(x, ("batch", "length", "embed"))
         x = ParallelTransformer(config=self.config)(x)
-         # x = with_sharding_constraint(x, ("batch", "length", "embed"))
          # x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
-          # x = with_sharding_constraint(x, ("batch", "length", "embed"))
         out = embed.attend(x)
         return out    
 

@@ -38,6 +38,8 @@ DEFAULT_TPU_RULES = [
     ('mlp_activations', None),
     
     (None, None)
+    ("model", "model")
+    ("data", "data")
 ]
 
 
