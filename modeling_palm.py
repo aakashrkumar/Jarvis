@@ -148,7 +148,7 @@ class ParallelTransformer(nn.Module):
             )
         for block in layers:
             x = block(x) + x
-            x = with_sharding_constraint(x, ("batch", "length", "embed"))
+           #  x = with_sharding_constraint(x, ("batch", "length", "embed"))
         return x
 
 # model
@@ -161,7 +161,7 @@ class PaLMModel(nn.Module):
         embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("vocab", "embed")})
         x = embed(x)
         #  x = with_sharding_constraint(x, ("batch", "length", "embed"))
-         # x = ParallelTransformer(config=self.config)(x)
+        x = ParallelTransformer(config=self.config)(x)
          # x = with_sharding_constraint(x, ("batch", "length", "embed"))
          # x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
           # x = with_sharding_constraint(x, ("batch", "length", "embed"))
