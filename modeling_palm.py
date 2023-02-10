@@ -158,7 +158,7 @@ class PaLMModel(nn.Module):
 
     @nn.compact
     def __call__(self, x):
-        embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("embed", "mlp")})
+        embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("vocab", "embed")})
         x = embed(x)
         #  x = with_sharding_constraint(x, ("batch", "length", "embed"))
          # x = ParallelTransformer(config=self.config)(x)
