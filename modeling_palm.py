@@ -116,7 +116,7 @@ class ParallelTransformerBlock(nn.Module):
 
         # attention out
         attn_out = rearrange(attn_out, "b h n d -> b n (h d)")
-        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("mlp", "embed")})(attn_out)
+        attn_out = nnp.Dense(self.config.dim, use_bias=False, shard_axes={"kernel": ("kv", "embed")})(attn_out)
 
         # feedforward out
         ff_out = SwiGLU()(ff)
