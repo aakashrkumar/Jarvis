@@ -42,6 +42,7 @@ DEFAULT_TPU_RULES = [
 ]
 
 
+
 class PaLMState(struct.PyTreeNode):
     train_state: TrainState
     apply_fn: Any = struct.field(pytree_node=False)
