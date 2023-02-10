@@ -152,7 +152,7 @@ class PaLMModel(nn.Module):
         embed = nnp.Embed(num_embeddings=self.config.num_tokens, features=self.config.dim, embedding_init = nn.initializers.normal(stddev=0.02), shard_axes={"embedding": ("vocab", "embed")})
         x = embed(x)
         x = ParallelTransformer(config=self.config)(x)
-         # x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False)(x)
+        x = nnp.LayerNorm(epsilon = 1e-5, use_bias = False, shard_axes={"scale":(None,)})(x)
         out = embed.attend(x)
         return out    
 

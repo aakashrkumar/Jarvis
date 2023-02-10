@@ -26,8 +26,7 @@ DEFAULT_TPU_RULES = [
     ('mlp', 'model'),
     ('heads', 'model'),
     ('vocab', 'model'),
-    # shard remaining activations; weight matrices already have axes mapped to 'model'
-    ('embed', 'model'),
+    ('embed', None),
     ('kv', None),
     ('joined_kv', None),
     ('relpos_buckets', None),
