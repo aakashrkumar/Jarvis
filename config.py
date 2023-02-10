@@ -12,7 +12,7 @@ class PaLMConfig(struct.PyTreeNode):
     depth:              int = 10
     
     
-    heads:              int = 32
+    heads:              int = 16
     dim_head:           int = 64
     
     ff_mult:            int = 4
