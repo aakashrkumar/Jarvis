@@ -49,7 +49,7 @@ class ShardMixIn:
                 reduce_fn=nn_partitioning._param_with_axes_sow_reduce_fn,
             )
         elif name == "scale" or name == "bias" and self.shard_axes is None:
-            axes = ("batch",)
+            axes = ("mlp_activations",)
             param = nn_partitioning.with_sharding_constraint(param, axes)
             
             self.sow(
