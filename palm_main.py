@@ -37,8 +37,8 @@ DEFAULT_TPU_RULES = [
     ('stack', None),
     ('mlp_activations', None),
     
-    (None, None)
-    ("model", "model")
+    (None, None),
+    ("model", "model"),
     ("data", "data")
 ]
 
