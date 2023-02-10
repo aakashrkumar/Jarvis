@@ -8,8 +8,8 @@ class PaLMConfig(struct.PyTreeNode):
     num_tokens:         int = 20000
     seq_length:         int = 2048
     
-    dim:                int = 2048
-    depth:              int = 16
+    dim:                int = 512
+    depth:              int = 10
     
     
     heads:              int = 32
@@ -20,6 +20,6 @@ class PaLMConfig(struct.PyTreeNode):
     lr:                 float = 1e-4
     
     seed:               int = 0
-    batch_size:         int = 64
+    batch_size:         int = 32
     
     num_partitions:     int = 4
