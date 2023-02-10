@@ -78,16 +78,16 @@ class ParallelTransformerBlock(nn.Module):
         fused_attn_ff_proj = nnp.Dense(features = sum(fused_dims), use_bias=False, shard_axes={"kernel": ("embed", "mlp")})(x)
         
         q, k, v, ff = jnp.split(fused_attn_ff_proj, split_indices, axis = -1)
-        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
-        k = with_sharding_constraint(k, ("batch", "length", "kv"))
-        v = with_sharding_constraint(v, ("batch", "length", "kv"))
-        ff = with_sharding_constraint(ff, ("batch", "length", "mlp"))
         # split heads
         # they use multi-query single-key-value attention, yet another Noam Shazeer paper
         # they found no performance loss past a certain scale, and more efficient decoding obviously
         # https://arxiv.org/abs/1911.02150
 
         q = rearrange(q, "b n (h d) -> b h n d", h = self.config.heads)
+        q = with_sharding_constraint(q, ("batch", "length", "heads", "kv"))
+        k = with_sharding_constraint(k, ("batch", "length", "kv"))
+        v = with_sharding_constraint(v, ("batch", "length", "kv"))
+        ff = with_sharding_constraint(ff, ("batch", "length", "mlp"))
 
         # rotary embeddings
         positions = RotaryEmbedding(self.config.dim_head)(n)
